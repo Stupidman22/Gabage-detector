@@ -1,0 +1,9 @@
+__pycache__/
+
+.env
+
+models/
+data_split/
+input/
+
+*.jpg

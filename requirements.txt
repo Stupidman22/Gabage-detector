@@ -1,0 +1,13 @@
+torch
+torchvision
+pandas
+matplotlib
+seaborn
+split-folders
+pillow
+tqdm
+python-dotenv
+mlflow
+onnx
+onnxruntime
+opencv_python
