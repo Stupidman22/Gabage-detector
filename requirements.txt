@@ -11,3 +11,4 @@ mlflow
 onnx
 onnxruntime
 opencv_python
+pyserial
