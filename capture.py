@@ -9,7 +9,8 @@ from torchvision import transforms
 
 import hyperparams as hparams
 
-MODEL_PATH = "/home/namdng/Documents/linhtinh/garbage_classifier/models/resnet50_tuned_lr_1e-3_bs_64_sche-f0.2-p6/gc_torchscript.onnx"
+# note: download model and paste to code folder to work if want to update AI model
+MODEL_PATH = "lr_1e-3_bs_64_sche-f0.2-p6/gc_torchscript.onnx"
 class_names = ["cardboard_paper", "glass", "metal", "others", "plastic"]
 device = "cpu"
 
@@ -19,14 +20,23 @@ sess_opt.intra_op_num_threads = 4
 ort_session = rt.InferenceSession(MODEL_PATH, sess_opt, providers=["CPUExecutionProvider"])
 
 ### Data transforms
+# data_transforms = transforms.Compose([
+#     transforms.Resize((hparams.IMAGE_SIZE, hparams.IMAGE_SIZE)),
+#     transforms.ToTensor(),
+#     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+# ])
+
+# Change data transform here to work with other webcam
 data_transforms = transforms.Compose([
-    transforms.Resize((hparams.IMAGE_SIZE, hparams.IMAGE_SIZE)),
+    transforms.Resize((394, 394)),  # Update to the expected dimensions
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
 # Function to preprocess the image and run inference
 def classify_image(ort_session, img):
+    # input_shape = ort_session.get_inputs()[0].shape
+    # print("Model expected input shape:", input_shape)
     img = data_transforms(img)
     img = img.unsqueeze(0)  # Add batch dimension
     img = img.to(device)
@@ -41,7 +51,8 @@ def classify_image(ort_session, img):
     return class_names[preds[0]]
 
 ### Camera
-cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+# cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+cap = cv2.VideoCapture(0)
 FRAME_WIDTH = 640
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
 FRAME_HEIGHT = 480
@@ -90,7 +101,8 @@ while True:
         print(f"Predicted class: {pred_class}")
         print(f"Inference time: {inference_time:.4f} seconds")
 
-        # Show the captured frame with prediction
+        # Show the captured frame with prediction.
+        # Comment this if not want to show image result
         cv2.putText(frame, f"{pred_class}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         cv2.imshow("Captured Image", frame)
 
