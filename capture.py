@@ -9,7 +9,7 @@ import serial
 import hyperparams as hparams
 
 # Constants
-MODEL_PATH = "lr_1e-3_bs_64_sche-f0.2-p6/gc_torchscript.onnx"
+MODEL_PATH = "models/gc_torchscript.onnx"
 CLASS_NAMES = ["cardboard_paper", "glass", "metal", "others", "plastic"]
 DEVICE = "cpu"
 
