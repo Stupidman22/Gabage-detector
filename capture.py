@@ -7,6 +7,7 @@ from PIL import Image
 from torchvision import transforms
 import serial
 import hyperparams as hparams
+from datetime import datetime
 
 # Constants
 MODEL_PATH = "models/gc_torchscript.onnx"
@@ -14,13 +15,16 @@ CLASS_NAMES = ["cardboard_paper", "glass", "metal", "others", "plastic"]
 DEVICE = "cpu"
 
 # Serial communication setup (Update port for your system)
-ARDUINO_PORT = "COM3"  # or "/dev/ttyUSB0" for Linux/RPi5
+ARDUINO_PORT = "/dev/ttyUSB0"  # or "/dev/ttyUSB0" for Linux/RPi5
 BAUD_RATE = 9600
 
 # Model and camera settings
 FRAME_WIDTH, FRAME_HEIGHT = 640, 480
 CAPTURE_FPS = 30
 IMAGE_SIZE = (394, 394)  # Expected model input size
+OUTPUT_PATH = "./output"
+# IMAGE_SIZE = (hparams.IMAGE_SIZE, hparams.IMAGE_SIZE)  # Expected model input size
+print(hparams.IMAGE_SIZE)
 
 # Initialize ONNX session
 sess_opt = rt.SessionOptions()
@@ -80,54 +84,56 @@ class GarbageClassifier:
 # Video capture and main loop
 def main():
     classifier = GarbageClassifier()
-    # cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
+    # cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
     cap.set(cv2.CAP_PROP_FPS, CAPTURE_FPS)
-
+    for i, name in enumerate(CLASS_NAMES):
+        os.makedirs(os.path.join(OUTPUT_PATH, name), exist_ok=True)
     if not cap.isOpened():
         print("Error: Could not open video stream.")
         return
 
-    print("Press 'space' to capture an image, 'q' to quit.")
-
+    # print("Press 'space' to capture an image, 'q' to quit.")
+        
+    # Loop to read data continuously from the serial port
     try:
         while True:
             ret, frame = cap.read()
             if not ret:
-                print("Failed to grab frame.")
-                break
-
-            # Display capture with rectangle
+               print("Failed to grab frame.")
+               break
+                        
+               # Display capture with rectangle
             feed_frame = frame.copy()
             cv2.rectangle(feed_frame, ((FRAME_WIDTH - FRAME_HEIGHT) // 2, 0),
-                          ((FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT, FRAME_HEIGHT), (0, 255, 0), 1)
+                                  ((FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT, FRAME_HEIGHT), (0, 255, 0), 1)
             cv2.imshow("Video Feed", feed_frame)
+            if classifier.ser.in_waiting > 0:  # Check if there is data waiting
+                data = classifier.ser.readline().decode('utf-8').strip()  # Read the data and decode to string
+                print("Test message receiver from arduino nano: "+data)
+                if data == "0":
+                   # Crop and save the frame for classification
+                   cropped_frame = frame[:, (FRAME_WIDTH - FRAME_HEIGHT) // 2:(FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT]
+                   img_path = "capture.jpg"
+                   cv2.imwrite(img_path, cropped_frame)
+                   img = Image.open(img_path)
 
-            # Handle keyboard input
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord(' '):  # Space key to capture and classify
-                # Crop and save the frame for classification
-                cropped_frame = frame[:, (FRAME_WIDTH - FRAME_HEIGHT) // 2:(FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT]
-                img_path = "capture.jpg"
-                cv2.imwrite(img_path, cropped_frame)
-                img = Image.open(img_path)
+                    # Classify and send result
+                   start_time = time.time()
+                   pred_class = classifier.classify_image(img)
+                   classifier.send_to_arduino(pred_class)
+                   print(f"Predicted class: {pred_class} | Inference time: {time.time() - start_time:.4f} seconds")
 
-                # Classify and send result
-                start_time = time.time()
-                pred_class = classifier.classify_image(img)
-                classifier.send_to_arduino(pred_class)
-                print(f"Predicted class: {pred_class} | Inference time: {time.time() - start_time:.4f} seconds")
-
-                # Display prediction on frame
-                cv2.putText(cropped_frame, pred_class, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-                cv2.imshow("Captured Image", cropped_frame)
-
-            elif key == ord('q'):  # 'q' to quit
-                break
+                    # Display prediction on frame
+                   cv2.putText(cropped_frame, pred_class, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+                   cv2.imshow("Captured Image", cropped_frame)
+                   output_path = os.path.join(OUTPUT_PATH, pred_class, f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+                   img.save(output_path)
+    except KeyboardInterrupt:
+        print("Exiting...")
     finally:
-        # Release resources
         cap.release()
         cv2.destroyAllWindows()
         classifier.close_serial()
