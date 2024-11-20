@@ -17,6 +17,7 @@ ARDUINO_PORT = "COM3"  # Update as per your system
 BAUD_RATE = 9600
 FRAME_WIDTH, FRAME_HEIGHT = 640, 480
 IMAGE_SIZE = (394, 394)
+ZOOM_SCALE = 1.01  # Zoom factor, adjust to zoom in more or less
 OUTPUT_PATH = "./output"
 
 # Initialize ONNX session
@@ -65,8 +66,38 @@ class GarbageClassifier:
         _, preds = torch.max(outputs, 1)
         return CLASS_NAMES[preds[0]]
 
+
+def zoom_and_crop(frame, zoom_scale=ZOOM_SCALE, target_size=IMAGE_SIZE):
+    # Get the center of the image
+    center_x, center_y = FRAME_WIDTH // 2, FRAME_HEIGHT // 2
+
+    # Calculate the zoomed size
+    zoomed_width = int(FRAME_WIDTH * zoom_scale)
+    zoomed_height = int(FRAME_HEIGHT * zoom_scale)
+
+    # Resize the image to zoom in
+    zoomed_frame = cv2.resize(frame, (zoomed_width, zoomed_height))
+
+    # Calculate the crop area to get the center region
+    crop_x1 = max(center_x - target_size[0] // 2, 0)
+    crop_y1 = max(center_y - target_size[1] // 2, 0)
+    crop_x2 = min(crop_x1 + target_size[0], zoomed_width)
+    crop_y2 = min(crop_y1 + target_size[1], zoomed_height)
+
+    # Crop the zoomed image to the target size
+    cropped_frame = zoomed_frame[crop_y1:crop_y2, crop_x1:crop_x2]
+
+    # Ensure the cropped frame is the correct size
+    cropped_frame = cv2.resize(cropped_frame, target_size)
+
+    return cropped_frame
 def process_frame(frame, classifier):
-    cropped_frame = frame[:, (FRAME_WIDTH - FRAME_HEIGHT) // 2:(FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT]
+    # Add a short delay to allow the camera to focus
+    time.sleep(0.5)  # Adjust the time (in seconds) as needed
+
+    # Crop the frame to the desired region
+    # cropped_frame = frame[:, (FRAME_WIDTH - FRAME_HEIGHT) // 2:(FRAME_WIDTH - FRAME_HEIGHT) // 2 + FRAME_HEIGHT]
+    cropped_frame = zoom_and_crop(frame)
     img_path = "capture.jpg"
     cv2.imwrite(img_path, cropped_frame)
     img = Image.open(img_path)
@@ -98,6 +129,16 @@ def main():
     if not cap.isOpened():
         print("Error: Could not open video stream.")
         return
+    # Check if the camera supports autofocus (CAP_PROP_AUTOFOCUS)
+    autofocus_supported = cap.get(cv2.CAP_PROP_AUTOFOCUS) is not None
+    print(f"Autofocus Supported: {autofocus_supported}")
+
+    # Try enabling autofocus if supported
+    if autofocus_supported:
+        cap.set(cv2.CAP_PROP_AUTOFOCUS, 1)  # 1 to enable autofocus
+    else:
+        print("Warning: Autofocus is not supported by this camera.")
+
     print("1. Press the space key to capture an image or wait for a signal from the Arduino.")
     print("2. Press the Q key to exit the program.")
     try:
