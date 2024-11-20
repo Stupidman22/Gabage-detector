@@ -13,7 +13,7 @@ from datetime import datetime
 MODEL_PATH = "models/gc_torchscript.onnx"
 CLASS_NAMES = ["cardboard_paper", "glass", "metal", "others", "plastic"]
 DEVICE = "cpu"
-ARDUINO_PORT = "COM3"  # Update as per your system
+ARDUINO_PORT = "/dev/ttyUSB0"  # or "/dev/ttyUSB0" for Linux/RPi5
 BAUD_RATE = 9600
 FRAME_WIDTH, FRAME_HEIGHT = 640, 480
 IMAGE_SIZE = (394, 394)
@@ -118,7 +118,8 @@ def process_frame(frame, classifier):
 
 def main():
     classifier = GarbageClassifier()
-    cap = cv2.VideoCapture(0)
+    # cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_V4L2)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, FRAME_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, FRAME_HEIGHT)
 
