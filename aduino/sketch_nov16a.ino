@@ -69,9 +69,11 @@ void loop() {
           break;
         case '5':
           // Không gạt servo nào
+          // No action, but explicitly reset waitingForPi
+          Serial.println("Plastic detected, no servo action.");
           break;
         default:
-          //Serial.println("Invalid input"); // Giá trị không hợp lệ
+          Serial.println("Invalid input"); // Giá trị không hợp lệ
           break;
       }
       waitingForPi = false;          // Thoát trạng thái chờ

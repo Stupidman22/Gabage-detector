@@ -40,6 +40,7 @@ class GarbageClassifier:
         except serial.SerialException as e:
             print(f"Warning: Could not open serial port {ARDUINO_PORT}. Error: {e}")
             self.ser = None
+        self.last_sent_time = 0  # To track cooldown period
 
     def send_to_arduino(self, class_label):
         class_to_int = {
@@ -50,9 +51,16 @@ class GarbageClassifier:
             "plastic": "5"
         }
         class_int = class_to_int.get(class_label, "0")
+        cooldown_time = 1  # Cooldown period in seconds
+        # Check cooldown period
+        if time.time() - self.last_sent_time < cooldown_time:
+            print("Cooldown active. Skipping this detection.")
+            return
+
         if self.ser and self.ser.is_open:
             self.ser.write(class_int.encode())
             print(f"Sent {class_int} to Arduino for class '{class_label}'")
+            self.last_sent_time = time.time()
 
     def close_serial(self):
         if self.ser and self.ser.is_open:
